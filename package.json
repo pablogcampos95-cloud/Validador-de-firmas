@@ -1,0 +1,19 @@
+{
+  "name": "validador-firmas",
+  "version": "1.0.0",
+  "description": "Validador de firmas digitales con vista previa de PDF y panel de resultados.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "multer": "^2.0.1",
+    "qrcode": "^1.5.4"
+  }
+}

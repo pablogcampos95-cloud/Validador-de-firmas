@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Validador de Firmas</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="page public-page">
+    <h1>Validador de Firmas</h1>
+
+    <section class="layout">
+      <div class="card document-card">
+        <h2>Documento</h2>
+        <div class="viewer-wrap">
+          <iframe id="pdf-viewer" title="Documento PDF"></iframe>
+        </div>
+      </div>
+
+      <aside class="card info-section visible" id="panel-info">
+        <h2>Firmas Digitales</h2>
+
+        <div class="status">
+          <p><strong>Validez:</strong> <span class="valid">✓ <span id="ui-estado">...</span></span></p>
+          <p><strong>Fecha Validación:</strong> <span id="ui-fecha">...</span></p>
+          <p><strong>Integridad:</strong> <span id="ui-mensaje">...</span></p>
+        </div>
+
+        <div class="signer" id="signer">
+          <button class="signer-toggle" type="button" id="signer-toggle" aria-expanded="false">
+            <span><strong>Firmado por:</strong> <span id="ui-firmante">...</span></span>
+            <span class="arrow" id="arrow">▶</span>
+          </button>
+
+          <div class="details">
+            <div class="details-panel">
+              <h3>Información del Firmante</h3>
+              <p><strong>Validez:</strong> <span class="valid">✓ <span id="ui-detalle-estado">...</span></span></p>
+              <p><strong>Fecha de Firma:</strong> <span id="ui-fecha-firma">...</span></p>
+              <p><strong>Nombre de Firmante:</strong> <span id="ui-nombre">...</span></p>
+              <p><strong>Cargo:</strong> <span id="ui-cargo">...</span></p>
+              <p><strong>Empresa:</strong> <span id="ui-empresa">...</span></p>
+              <p><strong>Algoritmo de Firma y Resumen:</strong> <span id="ui-algoritmo">...</span></p>
+              <p><strong>Tipo de Firma:</strong> <span id="ui-tipo-firma">...</span></p>
+            </div>
+
+            <h3 class="certificate-title">Información del Certificado</h3>
+            <p><strong>Serial del Certificado:</strong> <span id="ui-serial">...</span></p>
+            <p><strong>Validez Desde:</strong> <span id="ui-valido-desde">...</span></p>
+            <p><strong>Validez Hasta:</strong> <span id="ui-valido-hasta">...</span></p>
+            <p><strong>Emisor:</strong> <span id="ui-entidad">...</span></p>
+            <p><strong>Ruta de Certificación:</strong></p>
+            <div class="cert-route" id="ui-ruta"></div>
+
+            <h3 class="timestamp-title">Información de Sellado de Tiempo</h3>
+            <p class="timestamp-text" id="ui-sello">No se encontró sello de tiempo para esta firma.</p>
+          </div>
+        </div>
+
+        <div class="error" id="error-box"></div>
+      </aside>
+    </section>
+  </main>
+
+  <script src="/shared.js"></script>
+  <script>
+    const documentId = location.pathname.split('/').filter(Boolean).pop();
+    const signer = document.getElementById('signer');
+    const signerToggle = document.getElementById('signer-toggle');
+    const arrow = document.getElementById('arrow');
+
+    signerToggle.addEventListener('click', () => {
+      const isOpen = signer.classList.toggle('open');
+      signerToggle.setAttribute('aria-expanded', String(isOpen));
+      arrow.textContent = isOpen ? '▼' : '▶';
+    });
+
+    loadPublicDocument();
+
+    async function loadPublicDocument() {
+      try {
+        const response = await fetch(`/api/documentos/${documentId}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Documento no encontrado.');
+
+        document.getElementById('pdf-viewer').src = `${data.pdfUrl}#toolbar=1&navpanes=0&scrollbar=1&zoom=page-fit`;
+        renderValidation(data.validation);
+      } catch (error) {
+        setError(error.message);
+      }
+    }
+  </script>
+</body>
+</html>

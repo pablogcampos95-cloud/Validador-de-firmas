@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel Privado - Validador de Firmas</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="page admin-page">
+    <h1>Panel Privado</h1>
+
+    <section class="admin-grid">
+      <form class="card login-card" id="login-form">
+        <h2>Usuario</h2>
+        <label>
+          Usuario
+          <input id="usuario" name="usuario" autocomplete="username" value="admin" required>
+        </label>
+        <label>
+          Clave
+          <input id="clave" name="clave" type="password" autocomplete="current-password" value="admin123" required>
+        </label>
+        <button class="primary-button" type="submit">Ingresar</button>
+        <p class="helper">Demo: admin / admin123</p>
+      </form>
+
+      <section class="card upload-card locked" id="upload-card">
+        <h2>Generar Link</h2>
+        <input id="pdf-upload" type="file" accept="application/pdf" hidden>
+        <button class="primary-button" type="button" id="upload-button" disabled>Cargar Documento PDF</button>
+        <p class="helper" id="upload-helper">Inicia sesión para subir un PDF.</p>
+
+        <div class="result-box" id="result-box" hidden>
+          <strong>Link público generado</strong>
+          <div class="link-row">
+            <input id="public-link" readonly>
+            <button class="secondary-button" type="button" id="copy-button">Copiar</button>
+          </div>
+          <div class="qr-box">
+            <img id="qr-image" alt="Codigo QR del link publico">
+            <div class="qr-actions">
+              <span>Codigo QR unico</span>
+              <a id="download-qr" download>Descargar QR</a>
+            </div>
+          </div>
+          <a id="open-link" target="_blank" rel="noopener">Abrir validación pública</a>
+        </div>
+
+        <div class="error" id="error-box"></div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const loginForm = document.getElementById('login-form');
+    const uploadCard = document.getElementById('upload-card');
+    const uploadButton = document.getElementById('upload-button');
+    const uploadHelper = document.getElementById('upload-helper');
+    const fileInput = document.getElementById('pdf-upload');
+    const resultBox = document.getElementById('result-box');
+    const publicLink = document.getElementById('public-link');
+    const openLink = document.getElementById('open-link');
+    const qrImage = document.getElementById('qr-image');
+    const downloadQr = document.getElementById('download-qr');
+    const copyButton = document.getElementById('copy-button');
+    const errorBox = document.getElementById('error-box');
+    let token = localStorage.getItem('validador-token');
+
+    if (token) unlockUpload();
+
+    loginForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      setError('');
+
+      const payload = {
+        usuario: document.getElementById('usuario').value.trim(),
+        clave: document.getElementById('clave').value
+      };
+
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'No se pudo iniciar sesión.');
+
+        token = data.token;
+        localStorage.setItem('validador-token', token);
+        unlockUpload();
+      } catch (error) {
+        setError(error.message);
+      }
+    });
+
+    uploadButton.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      setError('');
+      resultBox.hidden = true;
+
+      if (file.type !== 'application/pdf') {
+        setError('Selecciona un archivo PDF.');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('documento', file);
+      uploadButton.disabled = true;
+      uploadButton.textContent = 'Generando...';
+
+      try {
+        const response = await fetch('/api/documentos', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'No se pudo generar el link.');
+
+        publicLink.value = data.linkPublico;
+        openLink.href = data.linkPublico;
+        qrImage.src = data.qrDataUrl;
+        downloadQr.href = data.qrUrl;
+        downloadQr.setAttribute('download', `qr-${data.id}.png`);
+        resultBox.hidden = false;
+      } catch (error) {
+        setError(error.message);
+      } finally {
+        uploadButton.disabled = false;
+        uploadButton.textContent = 'Cargar Documento PDF';
+        fileInput.value = '';
+      }
+    });
+
+    copyButton.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(publicLink.value);
+      copyButton.textContent = 'Copiado';
+      setTimeout(() => copyButton.textContent = 'Copiar', 1200);
+    });
+
+    function unlockUpload() {
+      uploadCard.classList.remove('locked');
+      uploadButton.disabled = false;
+      uploadHelper.textContent = 'Sube un PDF para crear su link único de validación.';
+    }
+
+    function setError(message) {
+      errorBox.textContent = message;
+      errorBox.classList.toggle('visible', Boolean(message));
+    }
+  </script>
+</body>
+</html>
