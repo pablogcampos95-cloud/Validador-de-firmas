@@ -46,7 +46,12 @@ app.get('/', (req, res) => {
 });
 
 app.get('/health', (req, res) => {
-  res.json({ ok: true });
+  const storage = getStorageInfo();
+  res.json({
+    ok: true,
+    storage,
+    documents: safeDocumentCount()
+  });
 });
 
 app.get('/admin', (req, res) => {
@@ -176,6 +181,37 @@ function writeDb(db) {
 
 function findDocument(id) {
   return readDb().documents.find((doc) => doc.id === id);
+}
+
+function safeDocumentCount() {
+  try {
+    return readDb().documents.length;
+  } catch (error) {
+    return null;
+  }
+}
+
+function getStorageInfo() {
+  let writable = false;
+  const probePath = path.join(dataDir, '.write-test');
+
+  try {
+    fs.mkdirSync(dataDir, { recursive: true });
+    fs.writeFileSync(probePath, 'ok', 'utf8');
+    fs.unlinkSync(probePath);
+    writable = true;
+  } catch (error) {
+    writable = false;
+  }
+
+  return {
+    dataDir,
+    writable,
+    railwayVolumeMountPath: process.env.RAILWAY_VOLUME_MOUNT_PATH || null,
+    configuredDataDir: process.env.DATA_DIR || null,
+    requiresPersistentVolume: true,
+    recommendedRailwayMountPath: '/app/data'
+  };
 }
 
 async function toPublicDocument(record, req) {
