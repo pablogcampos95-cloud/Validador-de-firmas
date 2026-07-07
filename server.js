@@ -76,18 +76,20 @@ app.post('/api/documentos', requirePrivateUser, upload.single('documento'), asyn
     return res.status(400).json({ error: 'El archivo debe ser un PDF.' });
   }
 
-  const id = createReadableId();
+  const db = readDb();
+  const id = createReadableId(db);
   const validation = buildValidationData(id, req.file.originalname, req.file.size);
   const record = {
     id,
     createdAt: new Date().toISOString(),
+    expiresAt: null,
+    permanent: true,
     originalName: req.file.originalname,
     storedName: req.file.filename,
     size: req.file.size,
     validation
   };
 
-  const db = readDb();
   db.documents.unshift(record);
   writeDb(db);
 
@@ -183,6 +185,8 @@ async function toPublicDocument(record, req) {
     nombreArchivo: record.originalName,
     tamano: record.size,
     creado: record.createdAt,
+    expira: record.expiresAt || null,
+    permanente: record.permanent !== false,
     linkPublico,
     qrUrl: `/documentos/${record.id}/qr.png`,
     qrDataUrl: await QRCode.toDataURL(linkPublico, {
@@ -199,8 +203,15 @@ function buildPublicLink(id, req) {
   return `${req.protocol}://${req.get('host')}/v/${id}`;
 }
 
-function createReadableId() {
-  return crypto.randomBytes(5).toString('hex').toUpperCase();
+function createReadableId(db = readDb()) {
+  const existingIds = new Set(db.documents.map((doc) => doc.id));
+  let id;
+
+  do {
+    id = crypto.randomBytes(5).toString('hex').toUpperCase();
+  } while (existingIds.has(id));
+
+  return id;
 }
 
 function buildValidationData(id, originalName, size) {
